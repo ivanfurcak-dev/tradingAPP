@@ -73,24 +73,54 @@ def fetch_trading212_data(api_key, api_secret, domain="https://live.trading212.c
     
     return all_items
 
-# Sidebar for API setup
+# Try to get credentials from Streamlit secrets
+try:
+    api_key = st.secrets["T212_API_KEY"]
+    api_secret = st.secrets["T212_API_SECRET"]
+    has_secrets = True
+except (KeyError, FileNotFoundError):
+    api_key = None
+    api_secret = None
+    has_secrets = False
+
+# Sidebar
 with st.sidebar:
     st.header("API Configuration")
     
-    api_key_input = st.text_input("API Key", type="password")
-    api_secret_input = st.text_input("API Secret", type="password")
-    
-    if st.button("Load Data from Trading212"):
-        if api_key_input and api_secret_input:
+    if has_secrets:
+        st.success("✓ Secrets loaded")
+        if st.button("Reload Data from Trading212"):
             with st.spinner("Fetching your portfolio data..."):
-                orders_data = fetch_trading212_data(api_key_input, api_secret_input)
+                orders_data = fetch_trading212_data(api_key, api_secret)
                 
                 if orders_data:
                     st.session_state.orders_data = orders_data
                     st.success(f"Loaded {len(orders_data)} orders!")
                     st.rerun()
-        else:
-            st.error("Please enter both API Key and Secret")
+    else:
+        st.warning("No secrets found. Enter credentials manually:")
+        api_key = st.text_input("API Key", type="password")
+        api_secret = st.text_input("API Secret", type="password")
+        
+        if st.button("Load Data from Trading212"):
+            if api_key and api_secret:
+                with st.spinner("Fetching your portfolio data..."):
+                    orders_data = fetch_trading212_data(api_key, api_secret)
+                    
+                    if orders_data:
+                        st.session_state.orders_data = orders_data
+                        st.success(f"Loaded {len(orders_data)} orders!")
+                        st.rerun()
+            else:
+                st.error("Please enter both API Key and Secret")
+
+# Auto-load if secrets are available and data not loaded
+if has_secrets and not st.session_state.orders_data:
+    with st.spinner("Loading your portfolio data from Trading212..."):
+        orders_data = fetch_trading212_data(api_key, api_secret)
+        
+        if orders_data:
+            st.session_state.orders_data = orders_data
 
 # Check if data is loaded
 if st.session_state.orders_data:
